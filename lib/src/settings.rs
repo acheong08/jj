@@ -15,6 +15,7 @@
 #![expect(missing_docs)]
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -80,6 +81,31 @@ impl RemoteSettings {
             .table_keys("remotes")
             .map(|name| Ok((name.into(), settings.get(["remotes", name])?)))
             .try_collect()
+    }
+}
+#[derive(Debug, Clone)]
+pub struct GitSettings {
+    pub auto_local_bookmark: bool,
+    pub abandon_unreachable_commits: bool,
+    pub executable_path: PathBuf,
+    pub write_change_id_header: bool,
+    pub colocate: bool,
+    pub ignore_filters: Vec<String>,
+}
+
+impl GitSettings {
+    pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
+        Ok(Self {
+            auto_local_bookmark: settings.get_bool("git.auto-local-bookmark")?,
+            abandon_unreachable_commits: settings.get_bool("git.abandon-unreachable-commits")?,
+            executable_path: settings.get("git.executable-path")?,
+            write_change_id_header: settings.get("git.write-change-id-header")?,
+            colocate: settings.get("git.colocate")?,
+            ignore_filters: settings
+                .get("git.ignore-filters")
+                .optional()?
+                .unwrap_or_else(|| vec!["lfs".to_string()]),
+        })
     }
 }
 
@@ -230,6 +256,10 @@ impl UserSettings {
             user_email: self.data.user_email.clone(),
             key: self.data.signing_key.clone(),
         }
+    }
+
+    pub fn git_settings(&self) -> Result<GitSettings, ConfigGetError> {
+        GitSettings::from_settings(self)
     }
 }
 
